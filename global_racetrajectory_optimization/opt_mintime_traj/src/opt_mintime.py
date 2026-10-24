@@ -8,6 +8,7 @@ import trajectory_planning_helpers as tph
 from global_racetrajectory_optimization.mintime_options import MintimeNotConverged
 from global_racetrajectory_optimization.opt_mintime_traj.src.solver_options import (
     StopAndSave, ipopt_opts, write_solver_status)
+from global_racetrajectory_optimization.opt_mintime_traj.src.seed_guess import build_seed_x0
 
 
 def _fail(options, status, iterations=None, state_dir=None):
@@ -851,6 +852,15 @@ def opt_mintime(reftrack: np.ndarray,
     w = ca.vertcat(*w)
     g = ca.vertcat(*g)
     w0 = np.concatenate(w0)
+
+    # fork: seed the initial guess from a known line (R-SEED)
+    if pars["optim_opts"].get("mintime_options") is not None \
+            and pars["optim_opts"]["mintime_options"].seed_line is not None:
+        if pars["optim_opts"]["warm_start"]:
+            raise ValueError("seed_line and a warm start are exclusive")
+        w0 = build_seed_x0(pars["optim_opts"]["mintime_options"].seed_line, w0.size, s_opt, tau,
+                           pars["vehicle_params_mintime"]["wheelbase"], pars["veh_params"]["mass"],
+                           nx=nx, nu=nu, v_s=v_s, delta_s=delta_s, f_drive_s=f_drive_s, f_brake_s=f_brake_s)
     lbw = np.concatenate(lbw)
     ubw = np.concatenate(ubw)
     lbg = np.concatenate(lbg)

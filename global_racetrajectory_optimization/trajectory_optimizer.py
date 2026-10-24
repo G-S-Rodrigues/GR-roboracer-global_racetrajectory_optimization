@@ -7,7 +7,7 @@ import trajectory_planning_helpers as tph
 import matplotlib.pyplot as plt
 import configparser
 from global_racetrajectory_optimization import opt_mintime_traj, helper_funcs_glob
-from global_racetrajectory_optimization.mintime_options import MintimeOptions, require_wired
+from global_racetrajectory_optimization.mintime_options import MintimeOptions
 from global_racetrajectory_optimization.helper_funcs_glob.src.arc_length import exact_lengths
 
 """
@@ -109,8 +109,6 @@ def trajectory_optimizer(input_path: str,
 
     if mintime is not None and curv_opt_type != "mintime":
         raise ValueError("mintime options are only valid with curv_opt_type 'mintime'")
-    if mintime is not None:
-        require_wired(mintime)
 
     # ------------------------------------------------------------------------------------------------------------------
     # INITIALIZATION OF PATHS ------------------------------------------------------------------------------------------

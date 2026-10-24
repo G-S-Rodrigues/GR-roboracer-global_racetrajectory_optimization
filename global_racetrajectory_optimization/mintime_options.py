@@ -39,9 +39,3 @@ class MintimeOptions:
     seed_line: Optional[np.ndarray] = None
     # Replace tph's 15-point polyline arc length by the exact one (Q11).
     exact_arc_length: bool = True
-
-
-def require_wired(options):
-    """Fields whose behaviour a later step wires refuse to run until then."""
-    if options.seed_line is not None:
-        raise NotImplementedError("seed_line: Step 5")
