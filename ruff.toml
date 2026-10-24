@@ -1,0 +1,23 @@
+# Lints only what the fork adds. Upstream TUM code is not reformatted, so the
+# patch list in the Readme stays readable.
+target-version = "py38"
+line-length = 80
+include = [
+    "tests/**/*.py",
+    "scripts/**/*.py",
+    "global_racetrajectory_optimization/mintime_options.py",
+    "global_racetrajectory_optimization/helper_funcs_glob/src/arc_length.py",
+    "global_racetrajectory_optimization/opt_mintime_traj/src/solver_options.py",
+    "global_racetrajectory_optimization/opt_mintime_traj/src/seed_guess.py",
+]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[lint.per-file-ignores]
+# Config text (the ini GR-roboracer renders) has JSON lines past 80 columns.
+"tests/fixtures/make_oval.py" = ["E501"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
