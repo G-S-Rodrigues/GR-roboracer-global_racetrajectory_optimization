@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import configparser
 from global_racetrajectory_optimization import opt_mintime_traj, helper_funcs_glob
 from global_racetrajectory_optimization.mintime_options import MintimeOptions, require_wired
+from global_racetrajectory_optimization.helper_funcs_glob.src.arc_length import exact_lengths
 
 """
 Created by:
@@ -400,6 +401,12 @@ def trajectory_optimizer(input_path: str,
                         alpha=alpha_opt,
                         stepsize_interp=pars["stepsize_opts"]["stepsize_interp_after_opt"])
 
+    # fork (Q11, min-time only): s := exact arc length on the same splines (xy unchanged), so s closes on the xy
+    exact_s = curv_opt_type == 'mintime' and mintime is not None and mintime.exact_arc_length
+    if exact_s:
+        s_points_opt_interp, spline_lengths_opt, el_lengths_opt_interp = exact_lengths(
+            coeffs_x_opt, coeffs_y_opt, spline_inds_opt_interp, t_vals_opt_interp)
+
     # ------------------------------------------------------------------------------------------------------------------
     # CALCULATE HEADING AND CURVATURE ----------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
@@ -426,8 +433,9 @@ def trajectory_optimizer(input_path: str,
                 s_splines_copy[i] = i * n_steps
             s_splines = s_splines_copy
 
-        print(f"Length s_splines: {len(s_splines[:-1])}, v_opt: {len(v_opt)}")
-        print(f"s_splines: {s_splines[:-1]}, v_opt: {v_opt}")
+        if not exact_s:
+            print(f"Length s_splines: {len(s_splines[:-1])}, v_opt: {len(v_opt)}")
+            print(f"s_splines: {s_splines[:-1]}, v_opt: {v_opt}")
         vx_profile_opt = np.interp(s_points_opt_interp, s_splines[:-1], v_opt)
 
     else:
