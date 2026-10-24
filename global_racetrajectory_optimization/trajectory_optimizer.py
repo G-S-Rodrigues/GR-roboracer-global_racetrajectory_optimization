@@ -1,3 +1,4 @@
+# Modified 2026-10 for GR-roboracer by Guilherme Rodrigues (see Readme.md, "GR-roboracer fork").
 import numpy as np
 import time
 import json

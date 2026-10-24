@@ -1,3 +1,4 @@
+# Modified 2026-10 for GR-roboracer by Guilherme Rodrigues (see Readme.md, "GR-roboracer fork").
 import os
 import sys
 import time

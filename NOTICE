@@ -1,0 +1,9 @@
+GR-roboracer-global_racetrajectory_optimization
+
+This is a modified version of TUMFTM/global_racetrajectory_optimization
+(GNU Lesser General Public License v3.0, see LICENSE), taken from the ForzaETH
+pip_package branch at b1b38ec. The work is still licensed under the LGPL-3.0.
+
+Modified in 2026 by Guilherme Rodrigues. The modifications are listed in
+Readme.md under "GR-roboracer fork". Modified upstream files carry a
+"Modified 2026-10 for GR-roboracer" header.

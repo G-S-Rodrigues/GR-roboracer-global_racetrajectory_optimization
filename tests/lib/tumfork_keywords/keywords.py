@@ -164,3 +164,11 @@ class keywords:  # noqa: N801 - Robot library name
             "arrays": res.arrays() if res.returncode == 0 else None,
             "state_dir": os.path.join(export_dir, "mintime"),
         }
+
+    @keyword
+    def closure_error(self, result):
+        """max | ds - |dxy| | along the returned trajectory (s;x;y;...)."""
+        traj = result["arrays"]["traj"]
+        ds = np.diff(traj[:, 0])
+        dxy = np.hypot(np.diff(traj[:, 1]), np.diff(traj[:, 2]))
+        return float(np.max(np.abs(ds - dxy)))

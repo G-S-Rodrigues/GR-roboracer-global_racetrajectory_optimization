@@ -47,3 +47,20 @@ TUMFORK-4050 resume from the saved state starts nearer the saved objective than 
     ${d_warm} =    Evaluate    abs(${r}[status][iteration0_objective] - ${saved_f})
     ${d_cold} =    Evaluate    abs(${cold}[iteration0_objective] - ${saved_f})
     Should Be True    ${d_warm} < ${d_cold}    warm ${d_warm} vs cold ${d_cold}
+
+TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
+    [Documentation]    R-SEED settings (mu_init 1e-3, seed, 3 threads): Optimal,
+    ...    lap 32.327 +- 1e-3 s, closure < 1e-4, solver_status.json written.
+    ...    The iteration count is recorded in the log (S1c took 1715).
+    [Tags]    heavy
+    ${case} =    Make Gym Case    ${WORK}/gym
+    Remove Directory    ${WORK}/export-4030    recursive=True
+    ${r} =    Run Mintime Solve    ${case}    ${WORK}/4030.npz    ${WORK}/export-4030
+    ...    timeout=7200    seed=True    mu_init=1e-3
+    Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]
+    Log    iterations ${r}[status][iterations], solve wall ${r}[status][wall_time_s] s
+    Should Be Equal    ${r}[status][status]    Solve_Succeeded
+    Should Be True    abs(${r}[arrays][lap_time] - 32.3268) <= 1e-3
+    ${c} =    Closure Error    ${r}
+    Should Be True    ${c} < 1e-4    closure ${c}
+    Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime

@@ -103,3 +103,31 @@ def test_tumfork_1030_matches_the_step1_golden():
     )
     err = float(np.max(np.abs(w - golden)))
     assert err < 1e-9, f"max |x0 - golden| = {err}"
+
+
+def test_tumfork_1030_pwr_behavior_state_count_is_refused():
+    seed = _circle()
+    with pytest.raises(ValueError, match="nx=5"):
+        build_seed_x0(
+            seed, 11 + 4 * (4 + 33 + 11), _grid(4, seed), TAU, WB, MASS, nx=11
+        )
+
+
+def test_tumfork_1030_closing_row_is_dropped():
+    seed = _circle()
+    closed = np.vstack([seed, seed[0]])
+    closed[-1, 0] = seed[-1, 0] + 0.1
+    n = 10
+    a = build_seed_x0(seed, NX + n * BLK, _grid(n, seed), TAU, WB, MASS)
+    b = build_seed_x0(closed, NX + n * BLK, _grid(n, seed), TAU, WB, MASS)
+    assert np.array_equal(a, b)
+
+
+def test_tumfork_1030_unordered_s_and_a_non_loop_raise():
+    seed = _circle()
+    bad = seed.copy()
+    bad[5, 0] = bad[4, 0]
+    with pytest.raises(ValueError, match="increasing"):
+        build_seed_x0(bad, NX + 4 * BLK, _grid(4, seed), TAU, WB, MASS)
+    with pytest.raises(ValueError, match="not a loop"):
+        build_seed_x0(seed[:100], NX + 4 * BLK, _grid(4, seed), TAU, WB, MASS)

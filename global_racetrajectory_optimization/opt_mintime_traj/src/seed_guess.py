@@ -31,6 +31,23 @@ def build_seed_x0(
     State: ``[v/v_s, 0, v*kappa, 0, 0]``; control:
     ``[atan(wb*kappa)/delta_s, max(m*a,0)/f_drive_s, min(m*a,0)/f_brake_s, 0]``.
     """
+    if nx != 5:
+        raise ValueError(
+            f"seed_line supports nx=5 only (pwr_behavior off), got {nx}"
+        )
+    seed = np.asarray(seed, dtype=float)
+    # a closing row duplicating the first (TUM's traj_race_cl) is dropped
+    if len(seed) > 2 and np.hypot(*(seed[0, 1:3] - seed[-1, 1:3])) < 1e-9:
+        seed = seed[:-1]
+    ds = np.diff(seed[:, 0])
+    if np.any(ds <= 0.0):
+        raise ValueError("seed_line s must be strictly increasing")
+    gap = float(np.hypot(*(seed[0, 1:3] - seed[-1, 1:3])))
+    if gap > 2.0 * float(np.median(ds)):
+        raise ValueError(
+            f"seed_line is not a loop: closing gap {gap:.3f} m exceeds twice "
+            f"the median spacing {np.median(ds):.3f} m"
+        )
     s_, kap_, v_, ax_ = seed[:, 0], seed[:, 4], seed[:, 5], seed[:, 6]
     lc = s_[-1] + np.hypot(*(seed[0, 1:3] - seed[-1, 1:3]))
     d = len(tau) - 1
