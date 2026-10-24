@@ -22,5 +22,7 @@ TUMFORK-4010 min-curv output is byte-identical to upstream
             Package File Should Start With    ${br}    /ws/
             Package File Should Start With    ${up}    /opt/upstream/
             Solutions Should Be Identical    ${br}    ${up}    ${curv} ${vehicle}
+            ${ex} =    Run Branch Solve    ${case}    ${curv}    ${tmp}/${vehicle}-${curv}-ex.npz    ${tmp}/${vehicle}-${curv}-export
+            Solutions Should Be Identical    ${ex}    ${up}    ${curv} ${vehicle} with export_dir
         END
     END

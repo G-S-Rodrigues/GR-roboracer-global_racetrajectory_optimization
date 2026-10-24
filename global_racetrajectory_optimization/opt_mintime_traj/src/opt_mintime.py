@@ -5,6 +5,15 @@ import numpy as np
 import casadi as ca
 from global_racetrajectory_optimization import opt_mintime_traj
 import trajectory_planning_helpers as tph
+from global_racetrajectory_optimization.mintime_options import MintimeNotConverged
+from global_racetrajectory_optimization.opt_mintime_traj.src.solver_options import ipopt_opts
+
+
+def _fail(options, status, iterations=None, state_dir=None):
+    """Upstream's sys.exit(1), or MintimeNotConverged when options were given."""
+    if options is None:
+        sys.exit(1)
+    raise MintimeNotConverged(1, status=status, iterations=iterations, state_dir=state_dir)
 
 
 def opt_mintime(reftrack: np.ndarray,
@@ -867,20 +876,10 @@ def opt_mintime(reftrack: np.ndarray,
     # fill nlp structure
     nlp = {'f': J, 'x': w, 'g': g}
 
-    # solver options
-    opts = {"expand": True,
-            "verbose": print_debug,
-            "ipopt.max_iter": 2000,
-            "ipopt.tol": 1e-7}
-
-    # solver options for warm start
-    if pars["optim_opts"]["warm_start"]:
-        opts_warm_start = {"ipopt.warm_start_init_point": "yes",
-                           "ipopt.warm_start_bound_push": 1e-3,
-                           "ipopt.warm_start_mult_bound_push": 1e-3,
-                           "ipopt.warm_start_slack_bound_push": 1e-3,
-                           "ipopt.mu_init": 1e-3}
-        opts.update(opts_warm_start)
+    # solver options (the fork: built in solver_options; defaults == upstream)
+    options = pars["optim_opts"].get("mintime_options")
+    opts = ipopt_opts({"expand": True, "verbose": print_debug}, options,
+                      warm_start=pars["optim_opts"]["warm_start"])
 
     # load warm start files
     if pars["optim_opts"]["warm_start"]:
@@ -890,12 +889,12 @@ def opt_mintime(reftrack: np.ndarray,
             lam_g0 = np.loadtxt(os.path.join(export_path, 'lam_g0.csv'))
         except IOError:
             print('\033[91m' + 'WARNING: Failed to load warm start files!' + '\033[0m')
-            sys.exit(1)
+            _fail(options, "warm_start_files_missing")
 
     # check warm start files
     if pars["optim_opts"]["warm_start"] and not len(w0) == len(lbw):
         print('\033[91m' + 'WARNING: Warm start files do not fit to the dimension of the NLP!' + '\033[0m')
-        sys.exit(1)
+        _fail(options, "warm_start_wrong_size")
 
     # create solver instance
     solver = ca.nlpsol("solver", "ipopt", nlp, opts)
@@ -918,7 +917,7 @@ def opt_mintime(reftrack: np.ndarray,
 
     if solver.stats()['return_status'] != 'Solve_Succeeded':
         print('\033[91m' + 'ERROR: Optimization did not succeed!' + '\033[0m')
-        sys.exit(1)
+        _fail(options, solver.stats()['return_status'], solver.stats().get('iter_count'), export_path)
 
     # ------------------------------------------------------------------------------------------------------------------
     # EXTRACT SOLUTION -------------------------------------------------------------------------------------------------
