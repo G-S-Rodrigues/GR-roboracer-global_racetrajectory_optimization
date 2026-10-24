@@ -854,11 +854,13 @@ def opt_mintime(reftrack: np.ndarray,
     g = ca.vertcat(*g)
     w0 = np.concatenate(w0)
 
+    x0_source = "cold"
     # fork: seed the initial guess from a known line (R-SEED)
     if pars["optim_opts"].get("mintime_options") is not None \
             and pars["optim_opts"]["mintime_options"].seed_line is not None:
         if pars["optim_opts"]["warm_start"]:
             raise ValueError("seed_line and a warm start are exclusive")
+        x0_source = "seed_line"
         w0 = build_seed_x0(pars["optim_opts"]["mintime_options"].seed_line, w0.size, s_opt, tau,
                            pars["vehicle_params_mintime"]["wheelbase"], pars["veh_params"]["mass"],
                            nx=nx, nu=nu, v_s=v_s, delta_s=delta_s, f_drive_s=f_drive_s, f_brake_s=f_brake_s)
@@ -901,7 +903,6 @@ def opt_mintime(reftrack: np.ndarray,
                       warm_start=warm_start, callback=callback)
 
     # load warm start files (from warm_start_dir, else export_path as upstream)
-    x0_source = "cold"
     if warm_start:
         state_dir = export_path
         if options is not None and options.warm_start_dir is not None:

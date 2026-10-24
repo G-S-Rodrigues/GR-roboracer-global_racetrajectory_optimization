@@ -23,7 +23,7 @@ TUMFORK-4040 a cold min-time solve with a wall limit stops, saves state and says
     Should Be Equal    ${r}[status][status]    stopped_wall_time
     Should Be True    ${r}[status][wall_time_s] <= 30
     FOR    ${name}    IN    w0    lam_x0
-        ${n} =    Count Lines In File    ${r}[state_dir]/${name}.csv
+        ${n} =    Evaluate    len(open($r['state_dir'] + '/' + $name + '.csv').read().split())
         Should Be Equal As Integers    ${{(${n} - 5) % 24}}    0
     END
     File Should Exist    ${r}[state_dir]/lam_g0.csv
@@ -61,6 +61,21 @@ TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
     Log    iterations ${r}[status][iterations], solve wall ${r}[status][wall_time_s] s
     Should Be Equal    ${r}[status][status]    Solve_Succeeded
     Should Be True    abs(${r}[arrays][lap_time] - 32.3268) <= 1e-3
+    ${c} =    Closure Error    ${r}
+    Should Be True    ${c} < 1e-4    closure ${c}
+    Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime
+
+TUMFORK-4020 seeded min-time on the oval converges and its s closes
+    [Documentation]    The oval, seeded from its own min-curv line at mu_init 1e-3:
+    ...    exit 0, Solve_Succeeded, closure < 1e-4, and no outputs/ in the package.
+    [Tags]    fast
+    ${case} =    Make Oval Mintime Case    ${WORK}/oval
+    Remove Directory    ${WORK}/export-4020    recursive=True
+    ${r} =    Run Mintime Solve    ${case}    ${WORK}/4020.npz    ${WORK}/export-4020
+    ...    timeout=1500    seed=True    mu_init=1e-3
+    Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]
+    Log    iterations ${r}[status][iterations], solve wall ${r}[status][wall_time_s] s, total ${r}[wall_s] s
+    Should Be Equal    ${r}[status][status]    Solve_Succeeded
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
     Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime

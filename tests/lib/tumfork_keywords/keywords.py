@@ -172,3 +172,23 @@ class keywords:  # noqa: N801 - Robot library name
         ds = np.diff(traj[:, 0])
         dxy = np.hypot(np.diff(traj[:, 1]), np.diff(traj[:, 2]))
         return float(np.max(np.abs(ds - dxy)))
+
+    @keyword
+    def make_oval_mintime_case(self, case_dir):
+        """The oval with a min-time ini, and a min-curv line as its seed."""
+        os.makedirs(case_dir, exist_ok=True)
+        track = make_oval.write_oval_track(os.path.join(case_dir, "oval.csv"))
+        inputs = make_oval.write_inputs(
+            os.path.join(case_dir, "inputs"),
+            make_oval.INI_MINTIME_GYM,
+            "f1tenth_gym_limits",
+        )
+        seed = os.path.join(case_dir, "seed.csv")
+        out = os.path.join(case_dir, "seed.npz")
+        res = runner.run_solve(
+            runner.BRANCH_PYTHON, track, inputs, "mincurv_iqp", 1.11, out
+        )
+        if res.returncode != 0:
+            raise AssertionError(f"seed solve failed\n{res.stderr[-2000:]}")
+        np.savetxt(seed, res.arrays()["traj"], delimiter=";")
+        return {"track": track, "inputs": inputs, "seed": seed}
