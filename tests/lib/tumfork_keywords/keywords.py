@@ -1,12 +1,42 @@
 """Robot Framework adapter over runner.py (thin: logic lives in runner)."""
 
+import json
 import os
+import shutil
 
 import make_oval
 import numpy as np
 from robot.api.deco import keyword, library
 
 from tumfork_keywords import runner
+
+DATA = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "..",
+    "..",
+    "third_party",
+    "GR-roboracer-data",
+    "fixtures",
+    "tum-fork",
+)
+
+
+def _num(v):
+    if isinstance(v, str):
+        try:
+            return int(v)
+        except ValueError:
+            try:
+                return float(v)
+            except ValueError:
+                return v
+    return v
+
+
+def _truthy(v):
+    return str(v).lower() in ("true", "1", "yes")
+
 
 _INI = {
     "f1tenth_default": make_oval.INI_F1TENTH_DEFAULT,
@@ -71,3 +101,66 @@ class keywords:  # noqa: N801 - Robot library name
         got = str(result["package_file"])
         if not got.startswith(prefix):
             raise AssertionError(f"imported {got}, expected under {prefix}")
+
+    # ---- min-time (tier 4) ------------------------------------------------
+
+    @keyword
+    def make_gym_case(self, case_dir):
+        """Spielberg, gym vehicle, margin 0.40: copied from the data repo."""
+        src = os.path.join(DATA, "spielberg-gym-0.40")
+        if not os.path.isdir(src):
+            raise AssertionError(
+                "data submodule not initialised: git submodule update --init"
+            )
+        os.makedirs(case_dir, exist_ok=True)
+        track = shutil.copyfile(
+            os.path.join(src, "track.csv"), os.path.join(case_dir, "track.csv")
+        )
+        inputs = os.path.join(case_dir, "inputs")
+        if not os.path.isdir(inputs):
+            shutil.copytree(os.path.join(src, "inputs"), inputs)
+        return {
+            "track": track,
+            "inputs": inputs,
+            "seed": os.path.join(src, "seed", "gym-0.4.csv"),
+            "data": src,
+        }
+
+    @keyword
+    def run_mintime_solve(
+        self, case, out_npz, export_dir, timeout=1800, seed=False, **options
+    ):
+        """One min-time solve in a subprocess; never raises on a bad exit.
+
+        ``options`` are MintimeOptions fields (Robot passes strings, so
+        numbers are converted here). Returns rc, wall_s, stdout/stderr tails,
+        the parsed solver_status.json (or None) and, if rc == 0, the arrays.
+        """
+        opts = {k: _num(v) for k, v in options.items()}
+        res = runner.run_solve(
+            runner.BRANCH_PYTHON,
+            case["track"],
+            case["inputs"],
+            "mintime",
+            1.11,
+            out_npz,
+            export_dir=export_dir,
+            timeout=float(timeout),
+            threads=3,
+            mintime=opts,
+            seed_csv=case["seed"] if _truthy(seed) else None,
+        )
+        status_file = os.path.join(export_dir, "mintime", "solver_status.json")
+        status = None
+        if os.path.isfile(status_file):
+            with open(status_file) as fh:
+                status = json.load(fh)
+        return {
+            "rc": res.returncode,
+            "wall_s": res.wall_s,
+            "stdout": res.stdout[-3000:],
+            "stderr": res.stderr[-3000:],
+            "status": status,
+            "arrays": res.arrays() if res.returncode == 0 else None,
+            "state_dir": os.path.join(export_dir, "mintime"),
+        }

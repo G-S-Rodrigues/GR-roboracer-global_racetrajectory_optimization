@@ -200,7 +200,8 @@ def trajectory_optimizer(input_path: str,
 
         # modification of mintime options/parameters
         pars["optim_opts"]["var_friction"] = mintime_opts["var_friction"]
-        pars["optim_opts"]["warm_start"] = mintime_opts["warm_start"]
+        pars["optim_opts"]["warm_start"] = (mintime_opts["warm_start"] or
+                                            (mintime is not None and mintime.warm_start_dir is not None))
         pars["optim_opts"]["mintime_options"] = mintime
         pars["vehicle_params_mintime"]["wheelbase"] = (pars["vehicle_params_mintime"]["wheelbase_front"]
                                                        + pars["vehicle_params_mintime"]["wheelbase_rear"])

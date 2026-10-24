@@ -42,13 +42,6 @@ class MintimeOptions:
 
 
 def require_wired(options):
-    """Step 3 only: fields whose behaviour a later step wires refuse to run."""
-    for name, step in (
-        ("max_wall_time_s", 4),
-        ("warm_start_dir", 4),
-        ("seed_line", 5),
-    ):
-        if getattr(options, name) is not None:
-            raise NotImplementedError(f"{name}: Step {step}")
-    if options.save_every:
-        raise NotImplementedError("save_every: Step 4")
+    """Fields whose behaviour a later step wires refuse to run until then."""
+    if options.seed_line is not None:
+        raise NotImplementedError("seed_line: Step 5")

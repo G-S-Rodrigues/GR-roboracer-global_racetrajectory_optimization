@@ -6,7 +6,8 @@ import casadi as ca
 from global_racetrajectory_optimization import opt_mintime_traj
 import trajectory_planning_helpers as tph
 from global_racetrajectory_optimization.mintime_options import MintimeNotConverged
-from global_racetrajectory_optimization.opt_mintime_traj.src.solver_options import ipopt_opts
+from global_racetrajectory_optimization.opt_mintime_traj.src.solver_options import (
+    StopAndSave, ipopt_opts, write_solver_status)
 
 
 def _fail(options, status, iterations=None, state_dir=None):
@@ -878,21 +879,33 @@ def opt_mintime(reftrack: np.ndarray,
 
     # solver options (the fork: built in solver_options; defaults == upstream)
     options = pars["optim_opts"].get("mintime_options")
+    warm_start = pars["optim_opts"]["warm_start"]
+    callback = None
+    if options is not None:
+        # always attached when options are given: it records the objective at
+        # iteration 0, and stops/saves only if a limit or interval is set
+        callback = StopAndSave("stop_and_save", len(w0), len(lbg), export_path,
+                               options.max_wall_time_s, options.save_every)
     opts = ipopt_opts({"expand": True, "verbose": print_debug}, options,
-                      warm_start=pars["optim_opts"]["warm_start"])
+                      warm_start=warm_start, callback=callback)
 
-    # load warm start files
-    if pars["optim_opts"]["warm_start"]:
+    # load warm start files (from warm_start_dir, else export_path as upstream)
+    x0_source = "cold"
+    if warm_start:
+        state_dir = export_path
+        if options is not None and options.warm_start_dir is not None:
+            state_dir = options.warm_start_dir
+        x0_source = "warm_start_dir"
         try:
-            w0 = np.loadtxt(os.path.join(export_path, 'w0.csv'))
-            lam_x0 = np.loadtxt(os.path.join(export_path, 'lam_x0.csv'))
-            lam_g0 = np.loadtxt(os.path.join(export_path, 'lam_g0.csv'))
+            w0 = np.loadtxt(os.path.join(state_dir, 'w0.csv'))
+            lam_x0 = np.loadtxt(os.path.join(state_dir, 'lam_x0.csv'))
+            lam_g0 = np.loadtxt(os.path.join(state_dir, 'lam_g0.csv'))
         except IOError:
             print('\033[91m' + 'WARNING: Failed to load warm start files!' + '\033[0m')
             _fail(options, "warm_start_files_missing")
 
     # check warm start files
-    if pars["optim_opts"]["warm_start"] and not len(w0) == len(lbw):
+    if warm_start and not len(w0) == len(lbw):
         print('\033[91m' + 'WARNING: Warm start files do not fit to the dimension of the NLP!' + '\033[0m')
         _fail(options, "warm_start_wrong_size")
 
@@ -905,9 +918,11 @@ def opt_mintime(reftrack: np.ndarray,
 
     # start time measure
     t0 = time.perf_counter()
+    if callback is not None:
+        callback.start()
 
     # solve NLP
-    if pars["optim_opts"]["warm_start"]:
+    if warm_start:
         sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg, lam_x0=lam_x0, lam_g0=lam_g0)
     else:
         sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
@@ -915,9 +930,16 @@ def opt_mintime(reftrack: np.ndarray,
     # end time measure
     tend = time.perf_counter()
 
+    status = solver.stats()['return_status']
+    if options is not None:
+        if callback.stopped:
+            status = "stopped_wall_time"
+        write_solver_status(export_path, status, solver.stats().get('iter_count'), tend - t0,
+                            float(sol["f"]), callback.first_f, options, x0_source)
+
     if solver.stats()['return_status'] != 'Solve_Succeeded':
         print('\033[91m' + 'ERROR: Optimization did not succeed!' + '\033[0m')
-        _fail(options, solver.stats()['return_status'], solver.stats().get('iter_count'), export_path)
+        _fail(options, status, solver.stats().get('iter_count'), export_path)
 
     # ------------------------------------------------------------------------------------------------------------------
     # EXTRACT SOLUTION -------------------------------------------------------------------------------------------------

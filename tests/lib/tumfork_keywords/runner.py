@@ -1,5 +1,6 @@
 """Run one TUM solve in a subprocess and return what happened."""
 
+import json
 import os
 import subprocess
 import tempfile
@@ -36,6 +37,8 @@ def run_solve(
     export_dir=None,
     timeout=None,
     threads=1,
+    mintime=None,
+    seed_csv=None,
 ):
     """Run ``tumfork_keywords.solve`` under ``python``.
 
@@ -53,7 +56,11 @@ def run_solve(
         str(out_npz),
     ]
     if export_dir is not None:
-        cmd.append(str(export_dir))
+        cmd += ["--export-dir", str(export_dir)]
+    if mintime is not None:
+        cmd += ["--mintime", json.dumps(mintime)]
+    if seed_csv is not None:
+        cmd += ["--seed-csv", str(seed_csv)]
     env = dict(os.environ)
     env.pop("PYTHONPATH", None)
     env.update(
