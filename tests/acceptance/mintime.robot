@@ -50,7 +50,7 @@ TUMFORK-4050 resume from the saved state starts nearer the saved objective than 
 
 TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
     [Documentation]    R-SEED settings (mu_init 1e-3, seed, 3 threads): Optimal,
-    ...    lap 32.327 +- 1e-3 s, closure < 1e-4, solver_status.json written.
+    ...    lap 32.3328 +- 1e-3 s (closed TUM lap), closure < 1e-4, solver_status.json written.
     ...    The iteration count is recorded in the log (S1c took 1715).
     [Tags]    heavy
     ${case} =    Make Gym Case    ${WORK}/gym
@@ -60,9 +60,13 @@ TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
     Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]
     Log    iterations ${r}[status][iterations], solve wall ${r}[status][wall_time_s] s
     Should Be Equal    ${r}[status][status]    Solve_Succeeded
-    Should Be True    abs(${r}[arrays][lap_time] - 32.3268) <= 1e-3
+    # Reference 32.3328 s: TUM's closed lap, ruling 2026-10-25. The harness lap
+    # that gave 32.3268 (STEP1/solve3.py:147, an open left Riemann sum over the
+    # 3387-row post line) omitted the closing element, 0.1 m / 16.2 m/s = 6.2e-3 s.
+    Should Be True    abs(${r}[arrays][lap_time] - 32.3328) <= 1e-3
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
+    Create File    ${WORK}/4030.lap    ${r}[arrays][lap_time]
     Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime
 
 TUMFORK-4020 seeded min-time on the oval converges and its s closes
@@ -79,3 +83,19 @@ TUMFORK-4020 seeded min-time on the oval converges and its s closes
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
     Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime
+
+TUMFORK-4050h resume from 4030's converged state converges to the same lap
+    [Documentation]    From 4030's saved state, warm_start_dir: same lap (1e-6),
+    ...    iterations <= 1188, which is 2x the 594 measured once in gr-tum-dev on 2026-10-25
+    ...    (TUM's default warm start pushes bounds and mu by 1e-3, so a resume is not instant).
+    [Tags]    heavy
+    ${case} =    Make Gym Case    ${WORK}/gym
+    Remove Directory    ${WORK}/export-4050h    recursive=True
+    ${r} =    Run Mintime Solve    ${case}    ${WORK}/4050h.npz    ${WORK}/export-4050h
+    ...    timeout=3600    warm_start_dir=${WORK}/export-4030/mintime
+    Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]
+    Log    resume iterations ${r}[status][iterations], lap ${r}[arrays][lap_time]
+    Should Be Equal    ${r}[status][x0_source]    warm_start_dir
+    ${ref} =    Get File    ${WORK}/4030.lap
+    Should Be True    abs(${r}[arrays][lap_time] - ${ref}) <= 1e-6
+    Should Be True    ${r}[status][iterations] <= 1188    2x the measured 594
