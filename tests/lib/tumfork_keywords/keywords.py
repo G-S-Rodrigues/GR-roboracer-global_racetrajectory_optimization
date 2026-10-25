@@ -186,7 +186,9 @@ class keywords:  # noqa: N801 - Robot library name
         """
         veh = os.path.join(case["inputs"], "veh_dyn_info")
         mach = np.loadtxt(
-            os.path.join(veh, "ax_max_machines.csv"), delimiter=",", comments="#"
+            os.path.join(veh, "ax_max_machines.csv"),
+            delimiter=",",
+            comments="#",
         )
         ggv = np.loadtxt(
             os.path.join(veh, "ggv.csv"), delimiter=",", comments="#"
