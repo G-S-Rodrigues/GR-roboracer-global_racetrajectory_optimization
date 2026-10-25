@@ -1,3 +1,4 @@
+# Modified 2026-10 for GR-roboracer by Guilherme Rodrigues (see Readme.md, "GR-roboracer fork").
 import numpy as np
 import time
 import json
@@ -7,6 +8,8 @@ import trajectory_planning_helpers as tph
 import matplotlib.pyplot as plt
 import configparser
 from global_racetrajectory_optimization import opt_mintime_traj, helper_funcs_glob
+from global_racetrajectory_optimization.mintime_options import MintimeOptions
+from global_racetrajectory_optimization.helper_funcs_glob.src.arc_length import exact_lengths
 
 """
 Created by:
@@ -21,7 +24,10 @@ def trajectory_optimizer(input_path: str,
                          track_name: str,
                          curv_opt_type: str,
                          safety_width: float = 0.8,
-                         plot: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+                         plot: bool = False,
+                         *,
+                         export_dir: str = None,
+                         mintime: MintimeOptions = None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """
     Optimizes a trajectory based on the given input parameters.
 
@@ -32,6 +38,10 @@ def trajectory_optimizer(input_path: str,
                                                     "mincurv_iqp", and "mintime".
     - safety_width (float): The safety width for the trajectory. Default is 0.8.
     - plot (bool): Whether to plot the optimized trajectory. Default is False.
+    - export_dir (str): Keyword-only. Directory for every output (min-time state under <export_dir>/mintime).
+                                                    Default None: <module dir>/outputs, as upstream. A path inside the
+                                                    package directory is refused.
+    - mintime (MintimeOptions): Keyword-only. Min-time solver options; only valid with curv_opt_type "mintime".
 
     Returns:
     - Tuple[np.ndarray, np.ndarray, np.ndarray, float]: A tuple containing the optimized trajectory, the track boundaries, and the lap time.
@@ -98,6 +108,12 @@ def trajectory_optimizer(input_path: str,
     if curv_opt_type not in ["shortest_path", "mincurv", "mincurv_iqp", "mintime"]:
         raise IOError("Unknown optimization type!")
 
+    if mintime is not None and curv_opt_type != "mintime":
+        raise ValueError("mintime options are only valid with curv_opt_type 'mintime'")
+    if mintime is not None and mintime.seed_line is not None and (
+            mintime.warm_start_dir is not None or mintime_opts["warm_start"]):
+        raise ValueError("seed_line and a warm start (warm_start_dir) are exclusive")
+
     # ------------------------------------------------------------------------------------------------------------------
     # INITIALIZATION OF PATHS ------------------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
@@ -130,18 +146,28 @@ def trajectory_optimizer(input_path: str,
         print("WARNING: var_friction option is not None but friction map data is missing for current track -> Setting"
               " var_friction to None!")
         
+    # output directory: upstream's <module dir>/outputs, or the caller's export_dir
+    if export_dir is None:
+        out_dir = os.path.join(file_paths["module"], "outputs")
+    else:
+        out_dir = os.path.abspath(export_dir)
+        module_real = os.path.realpath(file_paths["module"])
+        out_real = os.path.realpath(out_dir)
+        if out_real == module_real or out_real.startswith(module_real + os.sep):
+            raise ValueError("export_dir must be outside the package directory: " + out_dir)
+
     # create outputs folder(s)
-    os.makedirs(file_paths["module"] + "/outputs", exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
 
     if curv_opt_type == 'mintime':
-        os.makedirs(file_paths["module"] + "/outputs/mintime", exist_ok=True)
+        os.makedirs(os.path.join(out_dir, "mintime"), exist_ok=True)
 
     # assemble export paths
-    file_paths["traj_race_export"] = os.path.join(file_paths["module"], "outputs", "traj_race_cl.csv")
-    file_paths["mintime_export"] = os.path.join(file_paths["module"], "outputs", "mintime")
+    file_paths["traj_race_export"] = os.path.join(out_dir, "traj_race_cl.csv")
+    file_paths["mintime_export"] = os.path.join(out_dir, "mintime")
 
-    # file_paths["traj_ltpl_export"] = os.path.join(file_paths["module"], "outputs", "traj_ltpl_cl.csv")
-    file_paths["lap_time_mat_export"] = os.path.join(file_paths["module"], "outputs", lap_time_mat_opts["file"])
+    # file_paths["traj_ltpl_export"] = os.path.join(out_dir, "traj_ltpl_cl.csv")
+    file_paths["lap_time_mat_export"] = os.path.join(out_dir, lap_time_mat_opts["file"])
 
     # ------------------------------------------------------------------------------------------------------------------
     # IMPORT VEHICLE DEPENDENT PARAMETERS ------------------------------------------------------------------------------
@@ -176,7 +202,9 @@ def trajectory_optimizer(input_path: str,
 
         # modification of mintime options/parameters
         pars["optim_opts"]["var_friction"] = mintime_opts["var_friction"]
-        pars["optim_opts"]["warm_start"] = mintime_opts["warm_start"]
+        pars["optim_opts"]["warm_start"] = (mintime_opts["warm_start"] or
+                                            (mintime is not None and mintime.warm_start_dir is not None))
+        pars["optim_opts"]["mintime_options"] = mintime
         pars["vehicle_params_mintime"]["wheelbase"] = (pars["vehicle_params_mintime"]["wheelbase_front"]
                                                        + pars["vehicle_params_mintime"]["wheelbase_rear"])
 
@@ -376,6 +404,12 @@ def trajectory_optimizer(input_path: str,
                         alpha=alpha_opt,
                         stepsize_interp=pars["stepsize_opts"]["stepsize_interp_after_opt"])
 
+    # fork (Q11, min-time only): s := exact arc length on the same splines (xy unchanged), so s closes on the xy
+    exact_s = curv_opt_type == 'mintime' and mintime is not None and mintime.exact_arc_length
+    if exact_s:
+        s_points_opt_interp, spline_lengths_opt, el_lengths_opt_interp = exact_lengths(
+            coeffs_x_opt, coeffs_y_opt, spline_inds_opt_interp, t_vals_opt_interp)
+
     # ------------------------------------------------------------------------------------------------------------------
     # CALCULATE HEADING AND CURVATURE ----------------------------------------------------------------------------------
     # ------------------------------------------------------------------------------------------------------------------
@@ -402,8 +436,9 @@ def trajectory_optimizer(input_path: str,
                 s_splines_copy[i] = i * n_steps
             s_splines = s_splines_copy
 
-        print(f"Length s_splines: {len(s_splines[:-1])}, v_opt: {len(v_opt)}")
-        print(f"s_splines: {s_splines[:-1]}, v_opt: {v_opt}")
+        if not exact_s:
+            print(f"Length s_splines: {len(s_splines[:-1])}, v_opt: {len(v_opt)}")
+            print(f"s_splines: {s_splines[:-1]}, v_opt: {v_opt}")
         vx_profile_opt = np.interp(s_points_opt_interp, s_splines[:-1], v_opt)
 
     else:

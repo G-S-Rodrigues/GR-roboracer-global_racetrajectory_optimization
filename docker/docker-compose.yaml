@@ -1,0 +1,26 @@
+# Named docker-compose.yaml, not compose.yaml (as GR-roboracer does).
+name: gr-tum
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: gr-tum:dev
+    container_name: gr-tum-dev
+    working_dir: /ws
+    volumes:
+      - ..:/ws
+      - ws-log:/ws/log
+    environment:
+      # The container runs as root while the bind mount is owned by UID 1000.
+      GIT_CONFIG_COUNT: "1"
+      GIT_CONFIG_KEY_0: safe.directory
+      GIT_CONFIG_VALUE_0: /ws
+    stdin_open: true
+    tty: true
+    init: true
+    command: sleep infinity
+
+volumes:
+  ws-log:

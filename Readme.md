@@ -31,7 +31,7 @@ well.
 Use the provided `requirements.txt` in the root directory of this repo, in order to install all required modules.\
 `pip3 install -r /path/to/requirements.txt`
 
-The code is developed with Ubuntu 20.04 LTS and Python 3.7.
+The code is developed with Ubuntu 20.04 LTS and Python 3.7. (The GR-roboracer fork is tested on Python 3.8.20, see "GR-roboracer fork" below.)
 
 ### Solutions for possible installation problems (Windows)
 * `cvxpy`, `cython` or any other package requires a `Visual C++ compiler` -> Download the build tools for Visual Studio
@@ -154,3 +154,30 @@ Minimum Race-Time Planning-Strategy for an Autonomous Electric Racecar\
 DOI: 10.1109/ITSC45102.2020.9294681\
 Preprint: https://arxiv.org/abs/2005.07127 \
 Contact person: [Thomas Herrmann](mailto:thomas.herrmann@tum.de).
+
+
+# GR-roboracer fork
+
+This is a modified work of TUMFTM/global_racetrajectory_optimization (LGPL-3.0, upstream commit a9995e2) via the
+ForzaETH `pip_package` branch at `b1b38ec`. The fork's `main` starts there; upstream commit `ace99a4` is not taken
+(it monkeypatches tph's closed velocity solver globally). Modifications by Guilherme Rodrigues, 2026; see `NOTICE`.
+The default call, with no new argument, is unchanged, and the min-curv paths are byte-identical to upstream
+(TUMFORK-4010).
+
+| Change | Why | Test |
+|---|---|---|
+| `MintimeOptions` (`mintime_options.py`), keyword-only `mintime=` on `trajectory_optimizer` | solver controls without touching TUM's ini | TUMFORK-1070 |
+| `ipopt_opts` (`solver_options.py`): `max_iter`, `mu_init`, warm-start bound push | IPOPT options were an inline dict | TUMFORK-1040 |
+| `StopAndSave`: wall-time self-stop, periodic and final state save, `solver_status.json`, `MintimeNotConverged` (a `SystemExit` with code 1) | a long min-time solve must stop cleanly and be resumable | TUMFORK-1050, 4040 |
+| `warm_start_dir` | resume from saved state outside the package directory | TUMFORK-4050 |
+| `seed_line` (`seed_guess.py`) | start the NLP from a known line; `pwr_behavior` seeds are refused | TUMFORK-1030, 4020, 4030 |
+| `export_dir=` | upstream writes under the installed package; a path inside the package is refused | TUMFORK-1060 |
+| `exact_arc_length` (min-time only): `s` is the exact arc length on the same splines (`arc_length.py`) | tph's 15-point polyline and linear-in-t placement leave `s` 2.6e-3 m off the xy; now below 1e-4 | TUMFORK-1010, 1020, 4030 |
+| `docker/`, `.devcontainer/`, `scripts/check.sh`, `tests/`, CI | the fork has a gate, a container and Robot acceptance tests | all |
+
+`solver_status.json` is written to `<export_dir>/mintime/solver_status.json`, beside the saved state (`w0`, `lam_x0`, `lam_g0` `.csv`, `iter.txt`); `MintimeNotConverged.state_dir` is that directory and holds resumable state after any stop (a failed solve saves its last iterate).
+`COPYING` (GPL-3.0) accompanies `LICENSE` (LGPL-3.0), which incorporates it.
+
+Python 3.8.20 is the tested interpreter (the upstream note above says 3.7). Data for the tests is the
+`third_party/GR-roboracer-data` submodule (`git submodule update --init`); no data lives in this repo.
+Run the gate with `docker exec gr-tum-dev bash -lc 'cd /ws && ./scripts/check.sh --ready'`.

@@ -1,0 +1,7 @@
+{
+    "name": "GR-roboracer-global_racetrajectory_optimization",
+    "dockerComposeFile": ["../docker/docker-compose.yaml"],
+    "service": "dev",
+    "workspaceFolder": "/ws",
+    "shutdownAction": "stopCompose"
+}

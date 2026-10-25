@@ -1,3 +1,4 @@
+# Modified 2026-10 for GR-roboracer by Guilherme Rodrigues (see Readme.md, "GR-roboracer fork").
 import os
 import sys
 import time
@@ -5,6 +6,17 @@ import numpy as np
 import casadi as ca
 from global_racetrajectory_optimization import opt_mintime_traj
 import trajectory_planning_helpers as tph
+from global_racetrajectory_optimization.mintime_options import MintimeNotConverged
+from global_racetrajectory_optimization.opt_mintime_traj.src.solver_options import (
+    StopAndSave, ipopt_opts, save_state, write_solver_status)
+from global_racetrajectory_optimization.opt_mintime_traj.src.seed_guess import build_seed_x0
+
+
+def _fail(options, status, iterations=None, state_dir=None):
+    """Upstream's sys.exit(1), or MintimeNotConverged when options were given."""
+    if options is None:
+        sys.exit(1)
+    raise MintimeNotConverged(1, status=status, iterations=iterations, state_dir=state_dir)
 
 
 def opt_mintime(reftrack: np.ndarray,
@@ -841,6 +853,17 @@ def opt_mintime(reftrack: np.ndarray,
     w = ca.vertcat(*w)
     g = ca.vertcat(*g)
     w0 = np.concatenate(w0)
+
+    x0_source = "cold"
+    # fork: seed the initial guess from a known line (R-SEED)
+    if pars["optim_opts"].get("mintime_options") is not None \
+            and pars["optim_opts"]["mintime_options"].seed_line is not None:
+        if pars["optim_opts"]["warm_start"]:
+            raise ValueError("seed_line and a warm start are exclusive")
+        x0_source = "seed_line"
+        w0 = build_seed_x0(pars["optim_opts"]["mintime_options"].seed_line, w0.size, s_opt, tau,
+                           pars["vehicle_params_mintime"]["wheelbase"], pars["veh_params"]["mass"],
+                           nx=nx, nu=nu, v_s=v_s, delta_s=delta_s, f_drive_s=f_drive_s, f_brake_s=f_brake_s)
     lbw = np.concatenate(lbw)
     ubw = np.concatenate(ubw)
     lbg = np.concatenate(lbg)
@@ -867,35 +890,36 @@ def opt_mintime(reftrack: np.ndarray,
     # fill nlp structure
     nlp = {'f': J, 'x': w, 'g': g}
 
-    # solver options
-    opts = {"expand": True,
-            "verbose": print_debug,
-            "ipopt.max_iter": 2000,
-            "ipopt.tol": 1e-7}
+    # solver options (the fork: built in solver_options; defaults == upstream)
+    options = pars["optim_opts"].get("mintime_options")
+    warm_start = pars["optim_opts"]["warm_start"]
+    callback = None
+    if options is not None:
+        # always attached when options are given: it records the objective at
+        # iteration 0, and stops/saves only if a limit or interval is set
+        callback = StopAndSave("stop_and_save", len(w0), len(lbg), export_path,
+                               options.max_wall_time_s, options.save_every)
+    opts = ipopt_opts({"expand": True, "verbose": print_debug}, options,
+                      warm_start=warm_start, callback=callback)
 
-    # solver options for warm start
-    if pars["optim_opts"]["warm_start"]:
-        opts_warm_start = {"ipopt.warm_start_init_point": "yes",
-                           "ipopt.warm_start_bound_push": 1e-3,
-                           "ipopt.warm_start_mult_bound_push": 1e-3,
-                           "ipopt.warm_start_slack_bound_push": 1e-3,
-                           "ipopt.mu_init": 1e-3}
-        opts.update(opts_warm_start)
-
-    # load warm start files
-    if pars["optim_opts"]["warm_start"]:
+    # load warm start files (from warm_start_dir, else export_path as upstream)
+    if warm_start:
+        state_dir = export_path
+        if options is not None and options.warm_start_dir is not None:
+            state_dir = options.warm_start_dir
+        x0_source = "warm_start_dir"
         try:
-            w0 = np.loadtxt(os.path.join(export_path, 'w0.csv'))
-            lam_x0 = np.loadtxt(os.path.join(export_path, 'lam_x0.csv'))
-            lam_g0 = np.loadtxt(os.path.join(export_path, 'lam_g0.csv'))
+            w0 = np.loadtxt(os.path.join(state_dir, 'w0.csv'))
+            lam_x0 = np.loadtxt(os.path.join(state_dir, 'lam_x0.csv'))
+            lam_g0 = np.loadtxt(os.path.join(state_dir, 'lam_g0.csv'))
         except IOError:
             print('\033[91m' + 'WARNING: Failed to load warm start files!' + '\033[0m')
-            sys.exit(1)
+            _fail(options, "warm_start_files_missing")
 
     # check warm start files
-    if pars["optim_opts"]["warm_start"] and not len(w0) == len(lbw):
+    if warm_start and not len(w0) == len(lbw):
         print('\033[91m' + 'WARNING: Warm start files do not fit to the dimension of the NLP!' + '\033[0m')
-        sys.exit(1)
+        _fail(options, "warm_start_wrong_size")
 
     # create solver instance
     solver = ca.nlpsol("solver", "ipopt", nlp, opts)
@@ -906,9 +930,11 @@ def opt_mintime(reftrack: np.ndarray,
 
     # start time measure
     t0 = time.perf_counter()
+    if callback is not None:
+        callback.start()
 
     # solve NLP
-    if pars["optim_opts"]["warm_start"]:
+    if warm_start:
         sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg, lam_x0=lam_x0, lam_g0=lam_g0)
     else:
         sol = solver(x0=w0, lbx=lbw, ubx=ubw, lbg=lbg, ubg=ubg)
@@ -916,9 +942,19 @@ def opt_mintime(reftrack: np.ndarray,
     # end time measure
     tend = time.perf_counter()
 
+    status = solver.stats()['return_status']
+    if options is not None:
+        if callback.stopped:
+            status = "stopped_wall_time"
+        write_solver_status(export_path, status, solver.stats().get('iter_count'), tend - t0,
+                            float(sol["f"]), callback.first_f, options, x0_source)
+
     if solver.stats()['return_status'] != 'Solve_Succeeded':
         print('\033[91m' + 'ERROR: Optimization did not succeed!' + '\033[0m')
-        sys.exit(1)
+        if options is not None and not callback.stopped:
+            # a stop other than the wall limit: keep the iterate so it can be resumed
+            save_state(export_path, sol["x"].full(), sol["lam_x"].full(), sol["lam_g"].full())
+        _fail(options, status, solver.stats().get('iter_count'), export_path)
 
     # ------------------------------------------------------------------------------------------------------------------
     # EXTRACT SOLUTION -------------------------------------------------------------------------------------------------
