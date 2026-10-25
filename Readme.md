@@ -173,6 +173,7 @@ The default call, with no new argument, is unchanged, and the min-curv paths are
 | `seed_line` (`seed_guess.py`) | start the NLP from a known line; `pwr_behavior` seeds are refused | TUMFORK-1030, 4020, 4030 |
 | `export_dir=` | upstream writes under the installed package; a path inside the package is refused | TUMFORK-1060 |
 | `exact_arc_length` (min-time only): `s` is the exact arc length on the same splines (`arc_length.py`) | tph's 15-point polyline and linear-in-t placement leave `s` 2.6e-3 m off the xy; now below 1e-4 | TUMFORK-1010, 1020, 4030 |
+| Periodic exported speed (min-time only, `periodic_speed.py`): past the last NLP node the speed ramps to `v[0]` at the wrap | `np.interp` held it flat, then jumped to `v[0]`: `ax` 4.86x the limit at the seam; now 0.98x worst over the lap. Post-NLP: iterations and objective unchanged | TUMFORK-1080, 4030 |
 | `docker/`, `.devcontainer/`, `scripts/check.sh`, `tests/`, CI | the fork has a gate, a container and Robot acceptance tests | all |
 
 `solver_status.json` is written to `<export_dir>/mintime/solver_status.json`, beside the saved state (`w0`, `lam_x0`, `lam_g0` `.csv`, `iter.txt`); `MintimeNotConverged.state_dir` is that directory and holds resumable state after any stop (a failed solve saves its last iterate).

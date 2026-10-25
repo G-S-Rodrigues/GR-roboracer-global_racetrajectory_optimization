@@ -10,6 +10,7 @@ import configparser
 from global_racetrajectory_optimization import opt_mintime_traj, helper_funcs_glob
 from global_racetrajectory_optimization.mintime_options import MintimeOptions
 from global_racetrajectory_optimization.helper_funcs_glob.src.arc_length import exact_lengths
+from global_racetrajectory_optimization.helper_funcs_glob.src.periodic_speed import interp_speed_periodic
 
 """
 Created by:
@@ -429,6 +430,7 @@ def trajectory_optimizer(input_path: str,
         # interpolation
         s_splines = np.cumsum(spline_lengths_opt)
         s_splines = np.insert(s_splines, 0, 0.0)
+        lap_length = s_splines[-1]
         if len(s_splines[:-1]) != len(v_opt):
             n_steps = s_splines[-1] / len(v_opt)
             s_splines_copy = np.ones(len(v_opt) + 1)
@@ -439,7 +441,9 @@ def trajectory_optimizer(input_path: str,
         if not exact_s:
             print(f"Length s_splines: {len(s_splines[:-1])}, v_opt: {len(v_opt)}")
             print(f"s_splines: {s_splines[:-1]}, v_opt: {v_opt}")
-        vx_profile_opt = np.interp(s_points_opt_interp, s_splines[:-1], v_opt)
+        # periodic: past the last node the speed ramps to v_opt[0] at the wrap
+        # (np.interp held it flat, then jumped: |ax| 4.86x the limit, TUMFORK-4030)
+        vx_profile_opt = interp_speed_periodic(s_points_opt_interp, s_splines[:-1], v_opt, lap_length)
 
     else:
         vx_profile_opt = tph.calc_vel_profile.\

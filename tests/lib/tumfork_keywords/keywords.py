@@ -177,19 +177,25 @@ class keywords:  # noqa: N801 - Robot library name
 
     @keyword
     def ax_ratios(self, result, case):
-        """(seam, max over the closed lap) of |ax| / ax_max_machines(vx).
+        """(seam, max over the closed lap) of ax against the profile's limits.
 
-        traj is s;x;y;psi;kappa;vx;ax and ends with the closing row (row 0
-        again), so the step across the wrap is in the last two rows.
+        Driving (ax > 0) is held to ax_max_machines(vx), braking (ax < 0) to
+        the ggv's ax_max(vx), as tph's velocity profile does. traj is
+        s;x;y;psi;kappa;vx;ax and ends with the closing row (row 0 again), so
+        the step across the wrap is in the last two rows.
         """
-        lim = np.loadtxt(
-            os.path.join(case["inputs"], "veh_dyn_info", "ax_max_machines.csv"),
-            delimiter=",",
-            comments="#",
+        veh = os.path.join(case["inputs"], "veh_dyn_info")
+        mach = np.loadtxt(
+            os.path.join(veh, "ax_max_machines.csv"), delimiter=",", comments="#"
+        )
+        ggv = np.loadtxt(
+            os.path.join(veh, "ggv.csv"), delimiter=",", comments="#"
         )
         traj = result["arrays"]["traj"]
         vx, ax = traj[:, 5], traj[:, 6]
-        ratio = np.abs(ax) / np.interp(vx, lim[:, 0], lim[:, 1])
+        drive = np.interp(vx, mach[:, 0], mach[:, 1])
+        brake = np.interp(vx, ggv[:, 0], ggv[:, 1])
+        ratio = np.where(ax > 0, ax / drive, -ax / brake)
         return float(np.max(ratio[-2:])), float(np.max(ratio))
 
     @keyword
