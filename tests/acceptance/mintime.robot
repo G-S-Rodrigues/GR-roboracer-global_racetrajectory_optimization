@@ -69,6 +69,12 @@ TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
     Should Be True    abs(${r}[arrays][lap_time] - 32.3328) <= 1e-3
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
+    # Past the last NLP node the exported speed used to sit flat, then jump to
+    # v[0] at the wrap: |ax| 4.86x the limit across the seam (last two rows; 8F2).
+    ${last}    ${peak} =    Ax Ratios    ${r}    ${case}
+    Log    |ax|/limit: seam ${last}, max over the lap ${peak}
+    Should Be True    ${last} <= 1    seam |ax| ${last}x the limit
+    Should Be True    ${peak} <= 1    peak |ax| ${peak}x the limit
     Create File    ${WORK}/4030.lap    ${r}[arrays][lap_time]
     Package Outputs Should Be Unchanged    ${before}
 

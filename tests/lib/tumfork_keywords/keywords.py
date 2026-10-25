@@ -176,6 +176,23 @@ class keywords:  # noqa: N801 - Robot library name
         return float(np.max(np.abs(ds - dxy)))
 
     @keyword
+    def ax_ratios(self, result, case):
+        """(seam, max over the closed lap) of |ax| / ax_max_machines(vx).
+
+        traj is s;x;y;psi;kappa;vx;ax and ends with the closing row (row 0
+        again), so the step across the wrap is in the last two rows.
+        """
+        lim = np.loadtxt(
+            os.path.join(case["inputs"], "veh_dyn_info", "ax_max_machines.csv"),
+            delimiter=",",
+            comments="#",
+        )
+        traj = result["arrays"]["traj"]
+        vx, ax = traj[:, 5], traj[:, 6]
+        ratio = np.abs(ax) / np.interp(vx, lim[:, 0], lim[:, 1])
+        return float(np.max(ratio[-2:])), float(np.max(ratio))
+
+    @keyword
     def make_oval_mintime_case(self, case_dir):
         """The oval with a min-time ini, and a min-curv line as its seed."""
         os.makedirs(case_dir, exist_ok=True)
