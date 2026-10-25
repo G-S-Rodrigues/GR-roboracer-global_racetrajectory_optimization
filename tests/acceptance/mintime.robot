@@ -15,6 +15,7 @@ TUMFORK-4040 a cold min-time solve with a wall limit stops, saves state and says
     [Tags]    fast
     ${case} =    Make Gym Case    ${WORK}/gym
     Remove Directory    ${WORK}/export-4040    recursive=True
+    ${before} =    Snapshot Package Outputs
     ${r} =    Run Mintime Solve    ${case}    ${WORK}/4040.npz    ${WORK}/export-4040
     ...    timeout=900    max_wall_time_s=20
     Log    setup+solve wall ${r}[wall_s] s
@@ -27,7 +28,7 @@ TUMFORK-4040 a cold min-time solve with a wall limit stops, saves state and says
         Should Be Equal As Integers    ${{(${n} - 5) % 24}}    0
     END
     File Should Exist    ${r}[state_dir]/lam_g0.csv
-    Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime
+    Package Outputs Should Be Unchanged    ${before}
 
 TUMFORK-4050 resume from the saved state starts nearer the saved objective than a cold start
     [Documentation]    From 4040's state, solver_status.json records x0_source
@@ -40,6 +41,7 @@ TUMFORK-4050 resume from the saved state starts nearer the saved objective than 
     ${saved} =    Get File    ${WORK}/export-4040/mintime/solver_status.json
     ${cold} =    Evaluate    json.loads($saved)    json
     ${case} =    Make Gym Case    ${WORK}/gym
+    ${before} =    Snapshot Package Outputs
     ${r} =    Run Mintime Solve    ${case}    ${WORK}/4050.npz    ${WORK}/export-4050
     ...    timeout=900    warm_start_dir=${WORK}/export-4040/mintime    max_iter=5
     Should Be Equal    ${r}[status][x0_source]    warm_start_dir
@@ -55,6 +57,7 @@ TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
     [Tags]    heavy
     ${case} =    Make Gym Case    ${WORK}/gym
     Remove Directory    ${WORK}/export-4030    recursive=True
+    ${before} =    Snapshot Package Outputs
     ${r} =    Run Mintime Solve    ${case}    ${WORK}/4030.npz    ${WORK}/export-4030
     ...    timeout=7200    seed=True    mu_init=1e-3
     Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]
@@ -67,7 +70,7 @@ TUMFORK-4030 seeded min-time on Spielberg gym 0.40 reproduces S1c
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
     Create File    ${WORK}/4030.lap    ${r}[arrays][lap_time]
-    Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime
+    Package Outputs Should Be Unchanged    ${before}
 
 TUMFORK-4020 seeded min-time on the oval converges and its s closes
     [Documentation]    The oval, seeded from its own min-curv line at mu_init 1e-3:
@@ -75,6 +78,7 @@ TUMFORK-4020 seeded min-time on the oval converges and its s closes
     [Tags]    fast
     ${case} =    Make Oval Mintime Case    ${WORK}/oval
     Remove Directory    ${WORK}/export-4020    recursive=True
+    ${before} =    Snapshot Package Outputs
     ${r} =    Run Mintime Solve    ${case}    ${WORK}/4020.npz    ${WORK}/export-4020
     ...    timeout=1500    seed=True    mu_init=1e-3
     Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]
@@ -82,7 +86,7 @@ TUMFORK-4020 seeded min-time on the oval converges and its s closes
     Should Be Equal    ${r}[status][status]    Solve_Succeeded
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
-    Directory Should Not Exist    /ws/global_racetrajectory_optimization/outputs/mintime
+    Package Outputs Should Be Unchanged    ${before}
 
 TUMFORK-4050h resume from 4030's converged state converges to the same lap
     [Documentation]    From 4030's saved state, warm_start_dir: same lap (1e-6),
@@ -91,6 +95,7 @@ TUMFORK-4050h resume from 4030's converged state converges to the same lap
     [Tags]    heavy
     ${case} =    Make Gym Case    ${WORK}/gym
     Remove Directory    ${WORK}/export-4050h    recursive=True
+    ${before} =    Snapshot Package Outputs
     ${r} =    Run Mintime Solve    ${case}    ${WORK}/4050h.npz    ${WORK}/export-4050h
     ...    timeout=3600    warm_start_dir=${WORK}/export-4030/mintime
     Should Be Equal As Integers    ${r}[rc]    0    ${r}[stderr]

@@ -88,11 +88,12 @@ def test_tumfork_1030_size_that_does_not_fit_raises():
         build_seed_x0(seed, NX + 3 * BLK, _grid(4, seed), TAU, WB, MASS)
 
 
-@pytest.mark.skipif(
-    not os.path.isfile(os.path.join(FIX, "x0_seed.csv")),
-    reason="x0 golden not in the data submodule",
-)
 def test_tumfork_1030_matches_the_step1_golden():
+    if not os.path.isfile(os.path.join(FIX, "x0_seed.csv")):
+        pytest.fail(
+            "x0 golden missing: git submodule update --init "
+            "third_party/GR-roboracer-data"
+        )
     golden = np.loadtxt(os.path.join(FIX, "x0_seed.csv"))
     with open(os.path.join(FIX, "x0_seed.frame.txt")) as fh:
         frame = dict(line.strip().split("=", 1) for line in fh)
@@ -102,7 +103,7 @@ def test_tumfork_1030_matches_the_step1_golden():
         seed, int(frame["size"]), np.arange(n + 1) * h, TAU, WB, MASS
     )
     err = float(np.max(np.abs(w - golden)))
-    assert err < 1e-9, f"max |x0 - golden| = {err}"
+    assert err < 1e-12, f"max |x0 - golden| = {err}"
 
 
 def test_tumfork_1030_pwr_behavior_state_count_is_refused():

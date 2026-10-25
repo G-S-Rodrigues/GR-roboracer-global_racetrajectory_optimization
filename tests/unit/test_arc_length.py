@@ -70,10 +70,12 @@ def _closure(s, xy):
     return float(np.max(np.abs(np.diff(s) - np.hypot(*np.diff(xy, axis=0).T))))
 
 
-@pytest.mark.skipif(
-    not os.path.isdir(DATA), reason="data submodule not initialised"
-)
 def test_tumfork_1020_closure_on_the_w1a_raceline():
+    if not os.path.isfile(os.path.join(DATA, "W1a", "frame.npz")):
+        pytest.fail(
+            "W1a fixture missing: git submodule update --init "
+            "third_party/GR-roboracer-data"
+        )
     f = np.load(os.path.join(DATA, "W1a", "frame.npz"))
     r, nv = f["r"], f["nv"]
     n = np.loadtxt(os.path.join(DATA, "W1a", "states.csv"), delimiter=";")

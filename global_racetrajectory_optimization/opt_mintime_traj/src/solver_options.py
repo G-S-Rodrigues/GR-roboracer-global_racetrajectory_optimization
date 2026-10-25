@@ -41,6 +41,15 @@ def ipopt_opts(base, options=None, warm_start=False, callback=None):
 STATE_FILES = ("w0", "lam_x0", "lam_g0")
 
 
+def save_state(out_dir, x, lam_x, lam_g):
+    """Atomically write TUM's warm-start files ``w0/lam_x0/lam_g0.csv``."""
+    os.makedirs(out_dir, exist_ok=True)
+    for name, vec in (("w0", x), ("lam_x0", lam_x), ("lam_g0", lam_g)):
+        tmp = os.path.join(out_dir, name + ".tmp")
+        np.savetxt(tmp, np.asarray(vec).ravel())
+        os.replace(tmp, os.path.join(out_dir, name + ".csv"))
+
+
 class StopAndSave(ca.Callback):
     """IPOPT iteration callback: stop after a wall time, save state.
 
@@ -102,15 +111,7 @@ class StopAndSave(ca.Callback):
         return ca.Sparsity(0, 0)
 
     def _save(self, values):
-        os.makedirs(self.out_dir, exist_ok=True)
-        for name, key in (
-            ("w0", "x"),
-            ("lam_x0", "lam_x"),
-            ("lam_g0", "lam_g"),
-        ):
-            tmp = os.path.join(self.out_dir, name + ".tmp")
-            np.savetxt(tmp, np.asarray(values[key]).ravel())
-            os.replace(tmp, os.path.join(self.out_dir, name + ".csv"))
+        save_state(self.out_dir, values["x"], values["lam_x"], values["lam_g"])
         tmp = os.path.join(self.out_dir, "iter.tmp")
         with open(tmp, "w") as fh:
             fh.write(f"{self.it} {self.clock() - self._t0:.3f}\n")
@@ -147,7 +148,9 @@ def write_solver_status(
     options,
     x0_source,
 ):
-    """``<export>/solver_status.json``: how a min-time solve ended."""
+    """``<export_dir>/mintime/solver_status.json``: how a min-time solve ended.
+
+    ``export_path`` is the min-time directory, beside the state files."""
     used = dataclasses.asdict(options)
     seed = used.pop("seed_line")
     used["seed_line_shape"] = None if seed is None else list(seed.shape)

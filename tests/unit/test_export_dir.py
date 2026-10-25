@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import pytest
 
@@ -16,9 +17,12 @@ def _run(case, **kwargs):
     )
 
 
-def test_tumfork_1060_default_exports_under_the_module(oval_case):
+def test_tumfork_1060_default_creates_outputs_under_the_module(oval_case):
+    outputs = os.path.join(MODULE_DIR, "outputs")
+    if os.path.isdir(outputs):
+        shutil.rmtree(outputs)  # gitignored; recreated by every default call
     _run(oval_case)
-    assert os.path.isdir(os.path.join(MODULE_DIR, "outputs"))
+    assert os.path.isdir(outputs)
 
 
 def test_tumfork_1060_export_dir_is_the_output_root(oval_case, tmp_path):

@@ -24,3 +24,15 @@ def oval_case(tmp_path):
         "f1tenth_gym_limits",
     )
     return {"track": track[:-4], "inputs": inputs, "dir": tmp_path}
+
+
+@pytest.fixture
+def oval_mintime_case(tmp_path):
+    """The oval with a min-time ini (gym limits)."""
+    import make_oval
+
+    track = make_oval.write_oval_track(str(tmp_path / "oval.csv"))
+    inputs = make_oval.write_inputs(
+        str(tmp_path / "inputs"), make_oval.INI_MINTIME_GYM
+    )
+    return {"track": track[:-4], "inputs": inputs, "dir": tmp_path}

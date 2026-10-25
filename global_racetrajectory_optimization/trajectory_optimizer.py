@@ -110,6 +110,9 @@ def trajectory_optimizer(input_path: str,
 
     if mintime is not None and curv_opt_type != "mintime":
         raise ValueError("mintime options are only valid with curv_opt_type 'mintime'")
+    if mintime is not None and mintime.seed_line is not None and (
+            mintime.warm_start_dir is not None or mintime_opts["warm_start"]):
+        raise ValueError("seed_line and a warm start (warm_start_dir) are exclusive")
 
     # ------------------------------------------------------------------------------------------------------------------
     # INITIALIZATION OF PATHS ------------------------------------------------------------------------------------------

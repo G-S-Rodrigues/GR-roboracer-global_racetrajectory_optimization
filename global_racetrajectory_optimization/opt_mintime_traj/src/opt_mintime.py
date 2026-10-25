@@ -8,7 +8,7 @@ from global_racetrajectory_optimization import opt_mintime_traj
 import trajectory_planning_helpers as tph
 from global_racetrajectory_optimization.mintime_options import MintimeNotConverged
 from global_racetrajectory_optimization.opt_mintime_traj.src.solver_options import (
-    StopAndSave, ipopt_opts, write_solver_status)
+    StopAndSave, ipopt_opts, save_state, write_solver_status)
 from global_racetrajectory_optimization.opt_mintime_traj.src.seed_guess import build_seed_x0
 
 
@@ -951,6 +951,9 @@ def opt_mintime(reftrack: np.ndarray,
 
     if solver.stats()['return_status'] != 'Solve_Succeeded':
         print('\033[91m' + 'ERROR: Optimization did not succeed!' + '\033[0m')
+        if options is not None and not callback.stopped:
+            # a stop other than the wall limit: keep the iterate so it can be resumed
+            save_state(export_path, sol["x"].full(), sol["lam_x"].full(), sol["lam_g"].full())
         _fail(options, status, solver.stats().get('iter_count'), export_path)
 
     # ------------------------------------------------------------------------------------------------------------------

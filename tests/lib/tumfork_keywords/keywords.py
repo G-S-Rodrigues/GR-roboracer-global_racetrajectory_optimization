@@ -117,8 +117,10 @@ class keywords:  # noqa: N801 - Robot library name
             os.path.join(src, "track.csv"), os.path.join(case_dir, "track.csv")
         )
         inputs = os.path.join(case_dir, "inputs")
-        if not os.path.isdir(inputs):
-            shutil.copytree(os.path.join(src, "inputs"), inputs)
+        # always refresh: case_dir persists in the ws-log volume, and the data
+        # submodule may have moved since the last run
+        shutil.rmtree(inputs, ignore_errors=True)
+        shutil.copytree(os.path.join(src, "inputs"), inputs)
         return {
             "track": track,
             "inputs": inputs,
@@ -192,3 +194,27 @@ class keywords:  # noqa: N801 - Robot library name
             raise AssertionError(f"seed solve failed\n{res.stderr[-2000:]}")
         np.savetxt(seed, res.arrays()["traj"], delimiter=";")
         return {"track": track, "inputs": inputs, "seed": seed}
+
+    @keyword
+    def snapshot_package_outputs(self):
+        """{path: mtime_ns} for everything under the package's outputs/."""
+        import global_racetrajectory_optimization as tum
+
+        root = os.path.join(
+            os.path.dirname(os.path.abspath(tum.__file__)), "outputs"
+        )
+        snap = {}
+        for base, _, files in os.walk(root):
+            snap[base] = os.stat(base).st_mtime_ns
+            for name in files:
+                path = os.path.join(base, name)
+                snap[path] = os.stat(path).st_mtime_ns
+        return snap
+
+    @keyword
+    def package_outputs_should_be_unchanged(self, before):
+        """A solve with export_dir must not touch the package's outputs/."""
+        after = self.snapshot_package_outputs()
+        if after != before:
+            changed = sorted(set(after.items()) ^ set(before.items()))
+            raise AssertionError(f"package outputs/ changed: {changed[:5]}")

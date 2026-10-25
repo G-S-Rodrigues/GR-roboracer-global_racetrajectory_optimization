@@ -7,3 +7,5 @@ pip_package branch at b1b38ec. The work is still licensed under the LGPL-3.0.
 Modified in 2026 by Guilherme Rodrigues. The modifications are listed in
 Readme.md under "GR-roboracer fork". Modified upstream files carry a
 "Modified 2026-10 for GR-roboracer" header.
+
+The GNU General Public License v3.0 (COPYING), which the LGPL-3.0 incorporates, is conveyed alongside LICENSE.
