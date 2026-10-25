@@ -10,8 +10,6 @@ def test_tumfork_1080_seam_interpolates_toward_v0_not_clamped():
     v = np.array([1.0, 2.0, 3.0, 4.0])
     got = interp_speed_periodic(np.array([3.25, 3.5, 3.75]), nodes, v, 4.0)
     assert np.allclose(got, [3.25, 2.5, 1.75])
-    # what np.interp did: flat at v[-1] past the last node
-    assert np.interp(3.5, nodes, v) == 4.0
 
 
 def test_tumfork_1080_interior_matches_np_interp():

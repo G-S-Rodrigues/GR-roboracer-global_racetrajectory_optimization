@@ -92,6 +92,11 @@ TUMFORK-4020 seeded min-time on the oval converges and its s closes
     Should Be Equal    ${r}[status][status]    Solve_Succeeded
     ${c} =    Closure Error    ${r}
     Should Be True    ${c} < 1e-4    closure ${c}
+    # seam and whole-lap |ax| within the limits (clamped speed was 2.19x here)
+    ${seam}    ${peak} =    Ax Ratios    ${r}    ${case}
+    Log    |ax|/limit: seam ${seam}, max over the lap ${peak}
+    Should Be True    ${seam} <= 1    seam |ax| ${seam}x the limit
+    Should Be True    ${peak} <= 1    peak |ax| ${peak}x the limit
     Package Outputs Should Be Unchanged    ${before}
 
 TUMFORK-4050h resume from 4030's converged state converges to the same lap
